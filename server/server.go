@@ -5,10 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +29,8 @@ const (
 
 	token_expire_time = 30 * time.Minute // token过期时间
 )
+
+type HTTP_HandlerFunc func(s *Server, session *Session, pattern string, w http.ResponseWriter, r *http.Request)
 
 type Server struct {
 	srv      *http.Server
@@ -358,4 +363,167 @@ func (s *Server) WriteJsonSuccessResponse(w http.ResponseWriter, data any) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(body_buf.Bytes())
+}
+
+// HandleFunc 设置HTTP路由处理函数，需要验证token
+func (s *Server) HandleTokenFunc(pattern string, handler HTTP_HandlerFunc) error {
+
+	http_handler := func(w http.ResponseWriter, r *http.Request) {
+
+		var (
+			err     error
+			ok      bool
+			session *Session
+			token   string = r.Header.Get(token_header)
+			// session_id string = r.Header.Get(session_header)
+		)
+
+		// 检查token是否存在
+		if token == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		if !tokens.ValidateToken(token) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// // 查找会话
+		// session, exists = s.FindSession(session_id)
+		// if exists == false {
+		// 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		// 	return
+		// }
+
+		session = s.FindSessionByToken(token)
+		if session == nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// 检查token是否有效
+		ok, err = s.DB.CheckToken(token, session.UserID)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if ok == false {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		handler(s, session, pattern, w, r)
+	}
+
+	s.Mux.HandleFunc(pattern, http_handler)
+	return nil
+}
+
+// CopyUploadFile 将上传的文件从临时目录复制到最终存储位置
+func (s *Server) CopyUploadTmpFile(upload_info *database.UploadFile) error {
+
+	var (
+		err error
+	)
+
+	dst_file_path := path.Join("uploads",
+		upload_info.Path,
+	)
+
+	src_file_path := path.Join("uploads", "tmp", fmt.Sprintf("%d", upload_info.FileID))
+
+	s.log.Printf("Copying upload file: src=%#v, dst=%#v", src_file_path, dst_file_path)
+
+	// 创建目标文件夹
+	err = os.MkdirAll(path.Dir(dst_file_path), 0755)
+	if err != nil {
+		return err
+	}
+
+	// 打开源文件
+	src_file, err := os.Open(src_file_path)
+	if err != nil {
+		return err
+	}
+
+	// 创建目标文件
+	dst_file, err := os.OpenFile(dst_file_path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		src_file.Close()
+		return err
+	}
+
+	// 将源文件内容复制到目标文件
+	_, err = io.Copy(dst_file, src_file)
+	if err != nil {
+		dst_file.Close()
+		src_file.Close()
+		return err
+	}
+	dst_file.Close()
+	src_file.Close()
+
+	// 删除临时文件
+	err = os.Remove(src_file_path)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// saveUploadFile 将上传的文件保存到服务器的临时目录，并验证文件哈希值是否正确
+func (s *Server) saveUploadFile(upload_info *database.UploadFile, r io.Reader) error {
+
+	var (
+		err error
+		f   *os.File
+	)
+
+	s.log.Printf("Saving upload file: id=%d, hash=%#v, name=%#v, size=%d, path=%#v, uploader_id=%d", upload_info.FileID, upload_info.Hash, upload_info.Name, upload_info.Size, upload_info.Path, upload_info.CreatedByID)
+
+	f, err = os.OpenFile(path.Join("uploads", "tmp", fmt.Sprintf("%d", upload_info.FileID)), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	// defer os.Remove(path.Join("uploads", "tmp", fmt.Sprintf("%d", upload_info.FileID)))
+
+	_, err = io.Copy(f, r)
+	if err != nil {
+		return err
+	}
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	tmp_file_path := path.Join("uploads", "tmp", fmt.Sprintf("%d", upload_info.FileID))
+
+	// 将文件移动到最终位置之前，先检查文件的哈希值是否正确
+	f, err = os.Open(tmp_file_path)
+	if err != nil {
+		return err
+	}
+
+	h := sha256.New()
+	_, err = io.Copy(h, f)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	f.Close()
+
+	hash := fmt.Sprintf("%x", h.Sum(nil))
+	if strings.EqualFold(hash, upload_info.Hash) == false {
+		return fmt.Errorf("hash mismatch: expected %s, got %s", upload_info.Hash, hash)
+	}
+
+	err = s.CopyUploadTmpFile(upload_info)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

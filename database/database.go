@@ -114,6 +114,15 @@ func (d *Database) CreateTokenTable() error {
 	return nil
 }
 
+// CreateUploadTable 创建upload表
+func (d *Database) CreateUploadTable() (bool, error) {
+	err := d.DB.AutoMigrate(&UploadFile{})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (db *Database) Install() error {
 
 	var (
@@ -134,6 +143,12 @@ func (db *Database) Install() error {
 
 	// 创建token表
 	err = db.CreateTokenTable()
+	if err != nil {
+		return err
+	}
+
+	// 创建upload表
+	_, err = db.CreateUploadTable()
 	if err != nil {
 		return err
 	}

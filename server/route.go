@@ -15,7 +15,13 @@ func (s *Server) setRoute() error {
 	s.Mux.HandleFunc("/swagger/", httpSwagger.Handler())
 
 	// User
-	s.Mux.HandleFunc(api_url_prefix+"/user/login", s.http_api_login_handler())
+	s.Mux.HandleFunc("POST "+api_url_prefix+"/user/login", s.http_api_login_handler())
+
+	// Upload
+	s.HandleTokenFunc("POST "+api_url_prefix+"/upload/create", http_create_upload_api_handler)
+	s.HandleTokenFunc("POST "+api_url_prefix+"/upload/data/{file_id}", http_upload_data_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/upload/data/{file_id}", http_upload_read_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/upload/list", http_upload_list_api_handler)
 
 	return nil
 }
