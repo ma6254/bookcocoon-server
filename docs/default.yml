@@ -1,0 +1,12 @@
+# 日志记录参数
+log:
+  dir: "log" # 日志文件路径
+  level: "info" # 日志级别，可选值：debug, info, warn, error
+  max_size: 10 # 日志文件最大大小（MB）
+  max_backups: 5 # 日志文件最大备份数量
+  max_age: 30 # 日志文件最大保存天数
+
+# 服务器参数
+server:
+  broadcast_port: 5000 # UDP内网广播端口
+
