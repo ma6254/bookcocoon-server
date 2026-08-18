@@ -29,5 +29,14 @@ func (s *Server) setRoute() error {
 	s.HandleTokenFunc("GET "+api_url_prefix+"/os/info", http_os_info_api_handler)
 	s.HandleTokenFunc("GET "+api_url_prefix+"/os/state", http_os_state_api_handler)
 
+	// Book
+	s.HandleTokenFunc("POST "+api_url_prefix+"/book/create", http_book_create_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/book/list", http_book_list_api_handler)
+	s.HandleTokenFunc("POST "+api_url_prefix+"/book/update/{book_id}", http_book_update_api_handler)
+	s.HandleTokenFunc("POST "+api_url_prefix+"/book/cover/{book_id}", http_book_update_cover_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/book/cover/{book_id}", http_book_get_cover_api_handler)
+	s.HandleTokenFunc("POST "+api_url_prefix+"/book/raw/{book_id}", http_book_update_raw_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/book/raw/{book_id}", http_book_get_raw_api_handler)
+
 	return nil
 }

@@ -87,7 +87,7 @@ type User struct {
 	Email    string `gorm:"column:email"`                              // 邮箱
 }
 
-// UserAuth 检查数据库中的用户名和密码是否正确
+// CreateUser 创建新的用户
 func (d *Database) CreateUser(user_name string, hashed_passwd string) (*Auth, error) {
 
 	var (

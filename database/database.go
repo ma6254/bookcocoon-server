@@ -123,6 +123,15 @@ func (d *Database) CreateUploadTable() (bool, error) {
 	return true, nil
 }
 
+// CreateBookTable 创建book表
+func (d *Database) CreateBookTable() (bool, error) {
+	err := d.DB.AutoMigrate(&Book{})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (db *Database) Install() error {
 
 	var (
@@ -149,6 +158,11 @@ func (db *Database) Install() error {
 
 	// 创建upload表
 	_, err = db.CreateUploadTable()
+	if err != nil {
+		return err
+	}
+	// 创建book表
+	_, err = db.CreateBookTable()
 	if err != nil {
 		return err
 	}

@@ -24,10 +24,12 @@ import (
 )
 
 const (
-	log_flags    = log.LstdFlags | log.Lshortfile // 日志格式
-	token_header = "Authorization"                // HTTP请求头中用于传递token的字段名
+	log_flags         = log.LstdFlags | log.Lshortfile // 日志格式
+	token_header      = "Authorization"                // HTTP请求头中用于传递token的字段名
+	time_format       = time.RFC3339                   // 时间格式化字符串，使用RFC3339格式
+	token_expire_time = 30 * time.Minute               // token过期时间
 
-	token_expire_time = 30 * time.Minute // token过期时间
+	books_path = "books" // 书籍存储路径
 )
 
 type HTTP_HandlerFunc func(s *Server, session *Session, pattern string, w http.ResponseWriter, r *http.Request)
@@ -363,6 +365,11 @@ func (s *Server) WriteJsonSuccessResponse(w http.ResponseWriter, data any) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(body_buf.Bytes())
+}
+
+// WriteSuccessResponse 将HTTP响应返回状态码 200_OK
+func (s *Server) WriteSuccessResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusOK)
 }
 
 // HandleFunc 设置HTTP路由处理函数，需要验证token
