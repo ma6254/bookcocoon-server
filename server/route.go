@@ -23,5 +23,11 @@ func (s *Server) setRoute() error {
 	s.HandleTokenFunc("GET "+api_url_prefix+"/upload/data/{file_id}", http_upload_read_api_handler)
 	s.HandleTokenFunc("GET "+api_url_prefix+"/upload/list", http_upload_list_api_handler)
 
+	// Sys
+	s.HandleTokenFunc("GET "+api_url_prefix+"/sys/info", http_sys_info_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/sys/state", http_sys_state_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/os/info", http_os_info_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/os/state", http_os_state_api_handler)
+
 	return nil
 }
