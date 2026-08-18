@@ -132,6 +132,15 @@ func (d *Database) CreateBookTable() (bool, error) {
 	return true, nil
 }
 
+// CreateWebNovelChapterTable 创建web_novel_chapter表
+func (d *Database) CreateWebNovelChapterTable() (bool, error) {
+	err := d.DB.AutoMigrate(&WebNovelChapter{})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (db *Database) Install() error {
 
 	var (
@@ -161,8 +170,15 @@ func (db *Database) Install() error {
 	if err != nil {
 		return err
 	}
+
 	// 创建book表
 	_, err = db.CreateBookTable()
+	if err != nil {
+		return err
+	}
+
+	// 创建web_novel_chapter表
+	_, err = db.CreateWebNovelChapterTable()
 	if err != nil {
 		return err
 	}

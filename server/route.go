@@ -37,6 +37,9 @@ func (s *Server) setRoute() error {
 	s.HandleTokenFunc("GET "+api_url_prefix+"/book/cover/{book_id}", http_book_get_cover_api_handler)
 	s.HandleTokenFunc("POST "+api_url_prefix+"/book/raw/{book_id}", http_book_update_raw_api_handler)
 	s.HandleTokenFunc("GET "+api_url_prefix+"/book/raw/{book_id}", http_book_get_raw_api_handler)
+	s.HandleTokenFunc("POST "+api_url_prefix+"/book/pre_process_raw/{book_id}", http_book_pre_process_raw_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/book/chapters/{book_id}", http_book_get_chapter_list_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/book/chapters/{book_id}/{index}", http_book_get_chapter_content_api_handler)
 
 	return nil
 }

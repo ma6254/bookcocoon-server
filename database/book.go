@@ -3,10 +3,10 @@ package database
 import "gorm.io/gorm"
 
 const (
-	WebNovelBook   = "web_novel"  // 网文小说
-	ComicBook      = "comic"      // 漫画
-	PicPackBook    = "pic_pack"   // 图包
-	PublishingBook = "publishing" // 出版书籍
+	WebNovelBookType   = "web_novel"  // 网文小说
+	ComicBookType      = "comic"      // 漫画
+	PicPackBookType    = "pic_pack"   // 图包
+	PublishingBookType = "publishing" // 出版书籍
 )
 
 type Book struct {
