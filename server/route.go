@@ -38,8 +38,17 @@ func (s *Server) setRoute() error {
 	s.HandleTokenFunc("POST "+api_url_prefix+"/book/raw/{book_id}", http_book_update_raw_api_handler)
 	s.HandleTokenFunc("GET "+api_url_prefix+"/book/raw/{book_id}", http_book_get_raw_api_handler)
 	s.HandleTokenFunc("POST "+api_url_prefix+"/book/pre_process_raw/{book_id}", http_book_pre_process_raw_api_handler)
+
+	// Book Chapters
 	s.HandleTokenFunc("GET "+api_url_prefix+"/book/chapters/{book_id}", http_book_get_chapter_list_api_handler)
 	s.HandleTokenFunc("GET "+api_url_prefix+"/book/chapters/{book_id}/{index}", http_book_get_chapter_content_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/book/chapter-info/{book_id}/{index}", http_book_get_chapter_info_api_handler)
+
+	// Reading Record
+	s.HandleTokenFunc("POST "+api_url_prefix+"/reading_record/create", http_reading_record_create_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/reading_record/{book_id}", http_reading_record_get_api_handler)
+	s.HandleTokenFunc("POST "+api_url_prefix+"/reading_record/{book_id}", http_reading_record_update_api_handler)
+	s.HandleTokenFunc("GET "+api_url_prefix+"/reading_record", http_reading_record_list_by_user_api_handler)
 
 	return nil
 }

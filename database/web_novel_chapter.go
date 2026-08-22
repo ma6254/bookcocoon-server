@@ -31,8 +31,8 @@ func (d *Database) GetWebNovelChaptersByBookID(bookID uint64) ([]*WebNovelChapte
 	return chapters, nil
 }
 
-// GetWebNovelChapters 获取指定书籍的指定章节
-func (d *Database) GetWebNovelChaptersBookIndex(bookID uint64, index uint64) (*WebNovelChapter, error) {
+// GetWebNovelChapterByBookIndex 获取指定书籍的指定章节
+func (d *Database) GetWebNovelChapterByBookIndex(bookID uint64, index uint64) (*WebNovelChapter, error) {
 
 	var count int64
 	err := d.DB.Model(&WebNovelChapter{}).Where("book_id = ? AND `index` = ?", bookID, index).Count(&count).Error
@@ -53,7 +53,7 @@ func (d *Database) GetWebNovelChaptersBookIndex(bookID uint64, index uint64) (*W
 	return &chapters, nil
 }
 
-// GetWebNovelChaptersByBookID 获取指定书籍的所有章节
+// DeleteBookChaptersByBookID 删除指定书籍的所有章节
 func (d *Database) DeleteBookChaptersByBookID(bookID uint64) error {
 
 	// 删除章节

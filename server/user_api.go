@@ -11,6 +11,12 @@ import (
 	"github.com/ma6254/bookcocoon-server/validator"
 )
 
+var (
+	HttpErrorUnauthorized = func(w http.ResponseWriter) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	}
+)
+
 // LoginForm 用户登录表单
 type LoginForm struct {
 	Account  string `json:"account"`  // 用户ID、用户名、邮箱
@@ -92,7 +98,7 @@ func (s *Server) http_api_login_handler() func(w http.ResponseWriter, r *http.Re
 		}
 
 		if user == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			HttpErrorUnauthorized(w)
 			return
 		}
 
@@ -103,11 +109,11 @@ func (s *Server) http_api_login_handler() func(w http.ResponseWriter, r *http.Re
 		// 查询数据库，检查用户名和密码是否正确
 		auth, err := s.DB.UserAuth(user.ID, hashed_password)
 		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			HttpErrorInternal(w, err)
 			return
 		}
 		if auth == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			HttpErrorUnauthorized(w)
 			return
 		}
 
@@ -144,7 +150,7 @@ func (s *Server) http_api_login_handler() func(w http.ResponseWriter, r *http.Re
 		// 如果不存在会话，则查询数据库，检查是否已经存在token
 		tokens, err := s.DB.GetUserAllAliveToken(user.ID)
 		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			HttpErrorInternal(w, err)
 			return
 		}
 
@@ -157,7 +163,7 @@ func (s *Server) http_api_login_handler() func(w http.ResponseWriter, r *http.Re
 			// 创建新的会话
 			_, _, err = s.NewSession(user.UserName, auth.ID, token)
 			if err != nil {
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				HttpErrorInternal(w, err)
 				return
 			}
 
@@ -176,14 +182,14 @@ func (s *Server) http_api_login_handler() func(w http.ResponseWriter, r *http.Re
 
 		_, err = s.DB.CreateToken(token, auth.ID)
 		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			HttpErrorInternal(w, err)
 			return
 		}
 
 		// 创建新的会话
 		_, _, err = s.NewSession(user.UserName, auth.ID, token)
 		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			HttpErrorInternal(w, err)
 			return
 		}
 

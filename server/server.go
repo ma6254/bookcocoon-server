@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +22,31 @@ import (
 	"github.com/ma6254/bookcocoon-server/config"
 	"github.com/ma6254/bookcocoon-server/database"
 	"github.com/ma6254/bookcocoon-server/server/tokens"
+)
+
+var (
+	HttpErrorJsonDecode = func(w http.ResponseWriter, err error) {
+		log.Printf("JSON decode error: %v", err)
+		http.Error(w, "JSON decode error", http.StatusBadRequest)
+	}
+
+	HttpErrorInternal = func(w http.ResponseWriter, err error) {
+		debug.PrintStack()
+		log.Printf("Internal Server Error: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+
+	WriteHttpError = func(w http.ResponseWriter, session *Session, format string, args ...any) {
+		msg := fmt.Sprintf(format, args...)
+		session.log.Printf("%s", msg)
+		http.Error(w, msg, http.StatusInternalServerError)
+	}
+
+	WriteHttpErrorWithCode = func(w http.ResponseWriter, session *Session, code int, format string, args ...any) {
+		msg := fmt.Sprintf(format, args...)
+		session.log.Printf("%s", msg)
+		http.Error(w, msg, code)
+	}
 )
 
 const (
@@ -350,7 +376,7 @@ func (s *Server) createAdminUser() error {
 }
 
 // WriteJsonSuccessResponse 将数据写入HTTP响应，格式为JSON，并返回状态码 200_OK
-func (s *Server) WriteJsonSuccessResponse(w http.ResponseWriter, data any) {
+func (s *Server) WriteJsonSuccessResponse(w http.ResponseWriter, data any) error {
 	w.Header().Set("Content-Type", "application/json")
 
 	body_buf := bytes.NewBuffer(nil)
@@ -359,12 +385,12 @@ func (s *Server) WriteJsonSuccessResponse(w http.ResponseWriter, data any) {
 
 	err := encoder.Encode(data)
 	if err != nil {
-		http.Error(w, "json encode error: "+err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(body_buf.Bytes())
+	return nil
 }
 
 // WriteSuccessResponse 将HTTP响应返回状态码 200_OK
@@ -412,7 +438,7 @@ func (s *Server) HandleTokenFunc(pattern string, handler HTTP_HandlerFunc) error
 		// 检查token是否有效
 		ok, err = s.DB.CheckToken(token, session.UserID)
 		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			HttpErrorInternal(w, err)
 			return
 		}
 		if ok == false {

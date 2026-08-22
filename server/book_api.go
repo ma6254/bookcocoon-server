@@ -14,7 +14,20 @@ import (
 
 	"github.com/ma6254/bookcocoon-server/database"
 	"github.com/ma6254/bookcocoon-server/web_novel_book"
-	"gorm.io/gorm"
+)
+
+var (
+	HttpErrorBookNotFound = func(w http.ResponseWriter) {
+		http.Error(w, "Book not found", http.StatusNotFound)
+	}
+
+	HttpErrorBookCoverFileNotFound = func(w http.ResponseWriter) {
+		http.Error(w, "Book cover file not found", http.StatusNotFound)
+	}
+
+	HttpErrorInvalidBookID = func(w http.ResponseWriter) {
+		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+	}
 )
 
 type CreateBookForm struct {
@@ -106,7 +119,7 @@ func http_book_create_api_handler(s *Server, session *Session, pattern string, w
 
 	err = json.NewDecoder(r.Body).Decode(&form)
 	if err != nil {
-		http.Error(w, "json decode error: "+err.Error(), http.StatusBadRequest)
+		HttpErrorJsonDecode(w, err)
 		return
 	}
 
@@ -120,7 +133,7 @@ func http_book_create_api_handler(s *Server, session *Session, pattern string, w
 
 	err = s.DB.CreateBook(db_book)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -145,7 +158,7 @@ func http_book_list_api_handler(s *Server, session *Session, pattern string, w h
 
 	books, err := s.DB.GetAllBooks()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -178,26 +191,26 @@ func http_book_update_api_handler(s *Server, session *Session, pattern string, w
 
 	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		HttpErrorInvalidBookID(w)
 		return
 	}
 
 	// 检查书籍是否存在
 	err = s.DB.CheckBookID(book_id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Book not found", http.StatusNotFound)
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	form := &UpdateBookForm{}
 	err = json.NewDecoder(r.Body).Decode(&form)
 	if err != nil {
-		http.Error(w, "json decode error: "+err.Error(), http.StatusBadRequest)
+		HttpErrorJsonDecode(w, err)
 		return
 	}
 
@@ -211,7 +224,7 @@ func http_book_update_api_handler(s *Server, session *Session, pattern string, w
 
 	err = s.DB.UpdateBook(db_book)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -238,19 +251,19 @@ func http_book_update_cover_api_handler(s *Server, session *Session, pattern str
 
 	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		HttpErrorInvalidBookID(w)
 		return
 	}
 
 	// 检查书籍是否存在
 	err = s.DB.CheckBookID(book_id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Book not found", http.StatusNotFound)
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -283,7 +296,7 @@ func http_book_update_cover_api_handler(s *Server, session *Session, pattern str
 	// 读取封面数据
 	cover_data, err := io.ReadAll(coverReader)
 	if err != nil {
-		http.Error(w, "read cover data error: "+err.Error(), http.StatusInternalServerError)
+		WriteHttpError(w, session, "Error reading cover data")
 		return
 	}
 
@@ -291,7 +304,7 @@ func http_book_update_cover_api_handler(s *Server, session *Session, pattern str
 	book_path := path.Join(books_path, book_id_str)
 	files, err := os.ReadDir(book_path)
 	if err != nil {
-		http.Error(w, "read book directory error: "+err.Error(), http.StatusInternalServerError)
+		WriteHttpError(w, session, "read book directory error")
 		return
 	}
 
@@ -306,7 +319,7 @@ func http_book_update_cover_api_handler(s *Server, session *Session, pattern str
 	// 保存封面文件到书籍目录
 	err = os.WriteFile(path.Join(books_path, book_id_str, "cover"+upload_file_ext), cover_data, 0644)
 	if err != nil {
-		http.Error(w, "write cover file error: "+err.Error(), http.StatusInternalServerError)
+		WriteHttpError(w, session, "write cover file error")
 		return
 	}
 
@@ -332,19 +345,19 @@ func http_book_get_cover_api_handler(s *Server, session *Session, pattern string
 
 	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		HttpErrorInvalidBookID(w)
 		return
 	}
 
 	// 检查书籍是否存在
 	err = s.DB.CheckBookID(book_id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Book not found", http.StatusNotFound)
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -353,7 +366,7 @@ func http_book_get_cover_api_handler(s *Server, session *Session, pattern string
 	book_path := path.Join(books_path, book_id_str)
 	files, err := os.ReadDir(book_path)
 	if err != nil {
-		http.Error(w, "read book directory error: "+err.Error(), http.StatusInternalServerError)
+		WriteHttpError(w, session, "read book directory error")
 		return
 	}
 
@@ -365,7 +378,7 @@ func http_book_get_cover_api_handler(s *Server, session *Session, pattern string
 	}
 
 	if book_cover_path == "" {
-		http.Error(w, "cover file not found", http.StatusNotFound)
+		HttpErrorBookCoverFileNotFound(w)
 		return
 	}
 
@@ -392,32 +405,32 @@ func http_book_update_raw_api_handler(s *Server, session *Session, pattern strin
 
 	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		HttpErrorInvalidBookID(w)
 		return
 	}
 
 	// 检查书籍是否存在
 	err = s.DB.CheckBookID(book_id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Book not found", http.StatusNotFound)
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	// 检查Content-Type是否为multipart/form-data
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
-		http.Error(w, "Content-Type must be multipart/form-data", http.StatusBadRequest)
+		WriteHttpError(w, session, "Content-Type must be multipart/form-data")
 		return
 	}
 
 	// 检查书籍类型
 	db_book, err := s.DB.GetBookByID(book_id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -425,7 +438,7 @@ func http_book_update_raw_api_handler(s *Server, session *Session, pattern strin
 	book_path := path.Join(books_path, book_id_str)
 	files, err := os.ReadDir(book_path)
 	if err != nil {
-		http.Error(w, "read book directory error: "+err.Error(), http.StatusInternalServerError)
+		WriteHttpError(w, session, "read book directory error")
 		return
 	}
 
@@ -440,7 +453,7 @@ func http_book_update_raw_api_handler(s *Server, session *Session, pattern strin
 	// 保存新的原始文件
 	file, file_header, err := r.FormFile("file")
 	if err != nil {
-		http.Error(w, "get form file error: "+err.Error(), http.StatusBadRequest)
+		WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "get form file error")
 		return
 	}
 	defer file.Close()
@@ -448,7 +461,7 @@ func http_book_update_raw_api_handler(s *Server, session *Session, pattern strin
 	// 检查原始文件扩展名是否合法
 	ok := book_raw_file_ext_check(db_book.Type, file_header.Filename)
 	if ok == false {
-		http.Error(w, "Invalid raw file extension for book type", http.StatusBadRequest)
+		WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "Invalid raw file extension for book type")
 		return
 	}
 
@@ -456,14 +469,14 @@ func http_book_update_raw_api_handler(s *Server, session *Session, pattern strin
 
 	dst, err := os.Create(raw_file_path)
 	if err != nil {
-		http.Error(w, "create raw file error: "+err.Error(), http.StatusInternalServerError)
+		WriteHttpErrorWithCode(w, session, http.StatusInternalServerError, "create raw file error")
 		return
 	}
 	defer dst.Close()
 
 	_, err = io.Copy(dst, file)
 	if err != nil {
-		http.Error(w, "save raw file error: "+err.Error(), http.StatusInternalServerError)
+		WriteHttpErrorWithCode(w, session, http.StatusInternalServerError, "save raw file error")
 		return
 	}
 
@@ -489,26 +502,26 @@ func http_book_get_raw_api_handler(s *Server, session *Session, pattern string, 
 
 	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		HttpErrorInvalidBookID(w)
 		return
 	}
 
 	// 检查书籍是否存在
 	err = s.DB.CheckBookID(book_id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Book not found", http.StatusNotFound)
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	// 检查书籍类型
 	db_book, err := s.DB.GetBookByID(book_id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -517,7 +530,7 @@ func http_book_get_raw_api_handler(s *Server, session *Session, pattern string, 
 	book_path := path.Join(books_path, book_id_str)
 	files, err := os.ReadDir(book_path)
 	if err != nil {
-		http.Error(w, "read book directory error: "+err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -555,26 +568,26 @@ func http_book_pre_process_raw_api_handler(s *Server, session *Session, pattern 
 
 	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		HttpErrorInvalidBookID(w)
 		return
 	}
 
 	// 检查书籍是否存在
 	err = s.DB.CheckBookID(book_id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Book not found", http.StatusNotFound)
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	// 检查书籍类型
 	db_book, err := s.DB.GetBookByID(book_id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -583,7 +596,7 @@ func http_book_pre_process_raw_api_handler(s *Server, session *Session, pattern 
 	book_path := path.Join(books_path, book_id_str)
 	files, err := os.ReadDir(book_path)
 	if err != nil {
-		http.Error(w, "read book directory error: "+err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -607,26 +620,26 @@ func http_book_pre_process_raw_api_handler(s *Server, session *Session, pattern 
 
 		raw_file_buf, err := os.ReadFile(book_raw_path)
 		if err != nil {
-			http.Error(w, "read raw file error: "+err.Error(), http.StatusInternalServerError)
+			WriteHttpError(w, session, "read raw file error")
 			return
 		}
 
 		utf8_file_buf, err := web_novel_book.ConvertAnyToUTF8(raw_file_buf)
 		if err != nil {
-			http.Error(w, "convert raw file to UTF-8 error: "+err.Error(), http.StatusInternalServerError)
+			WriteHttpError(w, session, "convert raw file to UTF-8 error")
 			return
 		}
 
 		// 保存转换后的 UTF-8 文件到书籍目录
 		err = os.WriteFile(path.Join(book_path, "utf8_raw.txt"), utf8_file_buf, 0644)
 		if err != nil {
-			http.Error(w, "write UTF-8 file error: "+err.Error(), http.StatusInternalServerError)
+			WriteHttpError(w, session, "write UTF-8 file error")
 			return
 		}
 
 		chapters, err := web_novel_book.SplitChapter(utf8_file_buf)
 		if err != nil {
-			http.Error(w, "split chapters error: "+err.Error(), http.StatusInternalServerError)
+			WriteHttpError(w, session, "split chapters error")
 			return
 		}
 
@@ -638,7 +651,7 @@ func http_book_pre_process_raw_api_handler(s *Server, session *Session, pattern 
 
 		err = s.DB.DeleteBookChaptersByBookID(book_id)
 		if err != nil {
-			http.Error(w, "delete book chapters error: "+err.Error(), http.StatusInternalServerError)
+			WriteHttpError(w, session, "delete book chapters error")
 			return
 		}
 
@@ -652,7 +665,7 @@ func http_book_pre_process_raw_api_handler(s *Server, session *Session, pattern 
 				Name:   chapter.Title,
 			})
 			if err != nil {
-				http.Error(w, "create chapter error: "+err.Error(), http.StatusInternalServerError)
+				WriteHttpError(w, session, "create chapter error")
 				return
 			}
 
@@ -660,13 +673,13 @@ func http_book_pre_process_raw_api_handler(s *Server, session *Session, pattern 
 
 			err = os.WriteFile(book_chapter_path, []byte(chapter.Content), 0644)
 			if err != nil {
-				http.Error(w, "create chapter error: "+err.Error(), http.StatusInternalServerError)
+				WriteHttpError(w, session, "create chapter error")
 				return
 			}
 		}
 
 	default:
-		http.Error(w, "unsupported book type for pre processing", http.StatusBadRequest)
+		WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "unsupported book type for pre processing")
 		return
 	}
 }
@@ -674,7 +687,7 @@ func http_book_pre_process_raw_api_handler(s *Server, session *Session, pattern 
 // http_book_get_chapter_list_api_handler 获取书籍章节列表
 // @Summary      获取书籍章节列表
 // @Description  获取指定书籍的章节列表。
-// @Tags         书籍
+// @Tags         书籍章节
 // @Produce      application/json
 // @Param        book_id  path      uint64          true  "书籍ID"
 // @Success      200      {array}   database.WebNovelChapter
@@ -689,26 +702,26 @@ func http_book_get_chapter_list_api_handler(s *Server, session *Session, pattern
 
 	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		HttpErrorInvalidBookID(w)
 		return
 	}
 
 	// 检查书籍是否存在
 	err = s.DB.CheckBookID(book_id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Book not found", http.StatusNotFound)
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	// 检查书籍类型
 	db_book, err := s.DB.GetBookByID(book_id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -719,7 +732,7 @@ func http_book_get_chapter_list_api_handler(s *Server, session *Session, pattern
 		 **********************************************************************/
 		chapters, err := s.DB.GetWebNovelChaptersByBookID(book_id)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			HttpErrorInternal(w, err)
 			return
 		}
 
@@ -735,7 +748,7 @@ func http_book_get_chapter_list_api_handler(s *Server, session *Session, pattern
 		s.WriteJsonSuccessResponse(w, resp)
 
 	default:
-		http.Error(w, "unsupported book type for getting chapter list", http.StatusBadRequest)
+		WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "unsupported book type for getting chapter list")
 		return
 	}
 
@@ -744,7 +757,7 @@ func http_book_get_chapter_list_api_handler(s *Server, session *Session, pattern
 // http_book_get_chapter_content_api_handler 获取书籍章节内容
 // @Summary      获取书籍章节内容
 // @Description  获取指定书籍的章节内容。
-// @Tags         书籍
+// @Tags         书籍章节
 // @Produce      application/json
 // @Param        book_id     path      uint64          true  "书籍ID"
 // @Param        index       path      uint64          true  "章节索引"
@@ -760,31 +773,31 @@ func http_book_get_chapter_content_api_handler(s *Server, session *Session, patt
 
 	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		HttpErrorInvalidBookID(w)
 		return
 	}
 
 	index, err := strconv.ParseUint(index_str, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid chapter index", http.StatusBadRequest)
+		WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "Invalid chapter index")
 		return
 	}
 	// 检查书籍是否存在
 	err = s.DB.CheckBookID(book_id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Book not found", http.StatusNotFound)
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	// 检查书籍类型
 	db_book, err := s.DB.GetBookByID(book_id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -795,14 +808,14 @@ func http_book_get_chapter_content_api_handler(s *Server, session *Session, patt
 		/***********************************************************************
 		 * 网文类型
 		 **********************************************************************/
-		chapter, err := s.DB.GetWebNovelChaptersBookIndex(book_id, index)
+		chapter, err := s.DB.GetWebNovelChapterByBookIndex(book_id, index)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			HttpErrorInternal(w, err)
 			return
 		}
 
 		if chapter == nil {
-			http.Error(w, "Chapter not found", http.StatusNotFound)
+			WriteHttpErrorWithCode(w, session, http.StatusNotFound, "Chapter not found")
 			return
 		}
 
@@ -811,7 +824,85 @@ func http_book_get_chapter_content_api_handler(s *Server, session *Session, patt
 		http.ServeFile(w, r, book_chapter_path)
 
 	default:
-		http.Error(w, "unsupported book type for getting chapter list", http.StatusBadRequest)
+		WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "unsupported book type for getting chapter list")
+		return
+	}
+
+}
+
+// http_book_get_chapter_info_api_handler 获取书籍章节信息
+// @Summary      获取书籍章节信息
+// @Description  获取指定书籍的章节信息。
+// @Tags         书籍章节
+// @Produce      application/json
+// @Param        book_id     path      uint64          true  "书籍ID"
+// @Param        index       path      uint64          true  "章节索引"
+// @Success      200         {object}  database.WebNovelChapter
+// @Router       /book/chapter-info/{book_id}/{index} [get]
+// @Security     Bearer
+func http_book_get_chapter_info_api_handler(s *Server, session *Session, pattern string, w http.ResponseWriter, r *http.Request) {
+	var (
+		err         error
+		book_id_str = r.PathValue("book_id")
+		index_str   = r.PathValue("index")
+	)
+
+	book_id, err := strconv.ParseUint(book_id_str, 10, 64)
+	if err != nil {
+		HttpErrorInvalidBookID(w)
+		return
+	}
+
+	index, err := strconv.ParseUint(index_str, 10, 64)
+	if err != nil {
+		WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "Invalid chapter index")
+		return
+	}
+	// 检查书籍是否存在
+	err = s.DB.CheckBookID(book_id)
+	if err != nil {
+		if errors.Is(err, database.ErrorBookNotFound) {
+			HttpErrorBookNotFound(w)
+			return
+		}
+
+		HttpErrorInternal(w, err)
+		return
+	}
+
+	// 检查书籍类型
+	db_book, err := s.DB.GetBookByID(book_id)
+	if err != nil {
+		HttpErrorInternal(w, err)
+		return
+	}
+
+	// book_path := path.Join(books_path, book_id_str)
+
+	switch db_book.Type {
+	case database.WebNovelBookType:
+		/***********************************************************************
+		 * 网文类型
+		 **********************************************************************/
+		chapter, err := s.DB.GetWebNovelChapterByBookIndex(book_id, index)
+		if err != nil {
+			HttpErrorInternal(w, err)
+			return
+		}
+
+		if chapter == nil {
+			WriteHttpErrorWithCode(w, session, http.StatusNotFound, "Chapter not found")
+			return
+		}
+
+		s.WriteJsonSuccessResponse(w, Chapter{
+			BookID: chapter.BookID,
+			Index:  chapter.Index,
+			Title:  chapter.Name,
+		})
+
+	default:
+		WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "unsupported book type for getting chapter list")
 		return
 	}
 

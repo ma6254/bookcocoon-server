@@ -1,12 +1,19 @@
 package database
 
-import "gorm.io/gorm"
+import (
+	"errors"
+
+)
 
 const (
 	WebNovelBookType   = "web_novel"  // 网文小说
 	ComicBookType      = "comic"      // 漫画
 	PicPackBookType    = "pic_pack"   // 图包
 	PublishingBookType = "publishing" // 出版书籍
+)
+
+var (
+	ErrorBookNotFound = errors.New("book not found")
 )
 
 type Book struct {
@@ -31,10 +38,24 @@ func (d *Database) CreateBook(book *Book) error {
 
 // GetBookByID 根据书籍ID获取书籍信息
 func (d *Database) GetBookByID(book_id uint64) (*Book, error) {
-	var book Book
-	result := d.DB.Model(&Book{}).Where("id = ?", book_id).First(&book)
-	if result.Error != nil {
-		return nil, result.Error
+	var (
+		err   error
+		count int64
+		book  Book
+	)
+
+	err = d.DB.Model(&Book{}).Where("id = ?", book_id).Count(&count).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if count == 0 {
+		return nil, nil
+	}
+
+	err = d.DB.Model(&Book{}).Where("id = ?", book_id).First(&book).Error
+	if err != nil {
+		return nil, err
 	}
 	return &book, nil
 }
@@ -50,7 +71,7 @@ func (d *Database) UpdateBook(book *Book) error {
 		return result.Error
 	}
 	if count == 0 {
-		return gorm.ErrRecordNotFound
+		return ErrorBookNotFound
 	}
 
 	// 更新书籍信息
@@ -79,7 +100,7 @@ func (d *Database) CheckBookID(book_id uint64) error {
 		return result.Error
 	}
 	if count == 0 {
-		return gorm.ErrRecordNotFound
+		return ErrorBookNotFound
 	}
 	return nil
 }
@@ -92,7 +113,7 @@ func (d *Database) BookDelete(book_id uint64) error {
 		return result.Error
 	}
 	if count == 0 {
-		return gorm.ErrRecordNotFound
+		return ErrorBookNotFound
 	}
 
 	// 软删除，设置 Deleted 为 true

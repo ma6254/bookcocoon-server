@@ -18,7 +18,7 @@ type UploadFile struct {
 	CreatedByID uint64 `gorm:"column:created_by_id"`             // 上传者ID，外键关联到用户表
 }
 
-// FindUploadByHash 根据文件哈希查找上传文件信息
+// CreateUpload 创建上传文件信息
 func (d *Database) CreateUpload(file_id int64, hash string, name string, size uint64, path string, user_id uint64) (*UploadFile, error) {
 
 	// 检查是否已存在相同哈希的文件

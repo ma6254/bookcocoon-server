@@ -14,6 +14,12 @@ import (
 	"github.com/ma6254/bookcocoon-server/validator"
 )
 
+var (
+	HttpErrorUploadNotFound = func(w http.ResponseWriter) {
+		http.Error(w, "Upload not found", http.StatusNotFound)
+	}
+)
+
 // UploadInfoRequest 上传文件信息请求
 type UploadInfoRequest struct {
 	Hash string `json:"hash"` // 文件哈希
@@ -51,13 +57,13 @@ func http_create_upload_api_handler(s *Server, session *Session, pattern string,
 
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		HttpErrorJsonDecode(w, err)
 		return
 	}
 
 	// 检查hash是否符合sha256
 	if err := validator.ValidateSha256Hex(req.Hash); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "hash Validate fail", http.StatusBadRequest)
 		return
 	}
 
@@ -66,14 +72,14 @@ func http_create_upload_api_handler(s *Server, session *Session, pattern string,
 
 	// 检查文件名是否有效
 	if err := validator.ValidateUploadFileName(req.Name); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "file name validate fail", http.StatusBadRequest)
 		return
 	}
 
 	// 检查是否已存在相同哈希的文件
 	existingUpload, err := s.DB.FindUploadByHash(req.Hash)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -109,7 +115,7 @@ func http_create_upload_api_handler(s *Server, session *Session, pattern string,
 
 	upload, err := s.DB.CreateUpload(file_id, req.Hash, req.Name, req.Size, upload_path, session.UserID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 	if upload == nil {
@@ -156,11 +162,11 @@ func http_upload_data_api_handler(s *Server, session *Session, pattern string, w
 	// 检查是否已存在相同哈希的文件
 	upload_info, err := s.DB.FindUploadByID(file_id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 	if upload_info == nil {
-		http.Error(w, "Upload not found", http.StatusNotFound)
+		HttpErrorUploadNotFound(w)
 		return
 	}
 
@@ -173,7 +179,7 @@ func http_upload_data_api_handler(s *Server, session *Session, pattern string, w
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
 		file, _, fileErr := r.FormFile("file")
 		if fileErr != nil {
-			http.Error(w, "Invalid multipart file data", http.StatusBadRequest)
+			WriteHttpErrorWithCode(w, session, http.StatusBadRequest, "Failed to read file from form: %v", fileErr)
 			return
 		}
 		defer file.Close()
@@ -183,26 +189,26 @@ func http_upload_data_api_handler(s *Server, session *Session, pattern string, w
 	tmp_path := path.Join("uploads", "tmp")
 	err = os.MkdirAll(tmp_path, os.ModePerm)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	err = s.saveUploadFile(upload_info, fileReader)
 	if err != nil {
 		session.log.Printf("Error saving upload file: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	_, err = s.DB.UpdateUploadSize(file_id, upload_info.Size)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
 	_, err = s.DB.UpdateUploadTime(file_id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
@@ -244,13 +250,13 @@ func http_upload_read_api_handler(s *Server, session *Session, pattern string, w
 		// 如果路径是数字，尝试按文件ID查找
 		upload_info, err := s.DB.FindUploadByID(file_id)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			HttpErrorInternal(w, err)
 			return
 		}
 
 		// 文件不存在
 		if upload_info == nil {
-			http.Error(w, "Upload not found", http.StatusNotFound)
+			HttpErrorUploadNotFound(w)
 			return
 		}
 
@@ -294,7 +300,7 @@ func http_upload_list_api_handler(s *Server, session *Session, pattern string, w
 
 	uploads, err := s.DB.GetAllUploads()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		HttpErrorInternal(w, err)
 		return
 	}
 
